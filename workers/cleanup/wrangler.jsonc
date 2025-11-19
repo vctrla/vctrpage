@@ -1,0 +1,30 @@
+{
+	"name": "vctr-cleanup",
+	"main": "index.js",
+	"compatibility_date": "2025-11-10",
+
+	"triggers": {
+		"crons": ["0 * * * *"]
+	},
+
+	"vars": {
+		"NEWSLETTER_TOKEN_TTL_HOURS": "24"
+	},
+
+	"d1_databases": [
+		{
+			"binding": "newsletter_db",
+			"database_name": "newsletter-db",
+			"database_id": "dff2f6e5-9299-492e-bde8-307351e1037d"
+		}
+	],
+
+	"observability": {
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"invocation_logs": true,
+			"persist": true
+		}
+	}
+}

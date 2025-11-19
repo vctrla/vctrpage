@@ -1,0 +1,31 @@
+{
+	"name": "vctrpage",
+	"version": "1.0.0",
+	"main": "ssg/build.js",
+	"scripts": {
+		"build": "NODE_ENV=production node ssg/build.js",
+		"devwatch": "NODE_ENV=development node ssg/build.js && chokidar 'templates/*' 'assets/*' '../articles/**/*' 'ssg/**/*.js' -c 'NODE_ENV=development node ssg/build.js'",
+		"dev": "npm run devwatch & serve dist",
+		"devcf": "npm run devwatch & wrangler pages dev dist",
+		"predeploy": "npm run build",
+		"deploy": "wrangler pages deploy --project-name=vctr --branch=main --commit-dirty=true",
+		"deliver": "npm run deploy & node deliver.js",
+		"deploy:cleanup": "wrangler deploy --config workers/cleanup/wrangler.jsonc",
+		"dev:cleanup": "wrangler dev --config workers/cleanup/wrangler.jsonc --test-scheduled"
+	},
+	"type": "module",
+	"author": "github.com/vctrla",
+	"devDependencies": {
+		"chokidar-cli": "^3.0.0",
+		"gray-matter": "^2.0.1",
+		"html-minifier-terser": "^7.2.0",
+		"serve": "^14.2.5",
+		"sharp": "^0.34.3",
+		"terser": "^5.44.1",
+		"wrangler": "^4.48.0"
+	},
+	"dependencies": {
+		"@aws-sdk/client-sesv2": "^3.932.0",
+		"aws4fetch": "^1.0.20"
+	}
+}
