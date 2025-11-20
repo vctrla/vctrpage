@@ -31,8 +31,19 @@ export async function processAssets() {
 
 			const abs = path.join(paths.images, entry.name);
 			const rel = path.posix.join('img', entry.name);
-			const variants = await processImage(abs, rel, destImgDir);
-			assetMap[rel] = variants;
+			const relHashed = await processImage(abs, rel, destImgDir);
+			assetMap[rel] = relHashed;
+
+			// extract hash from "img/foo.<hash>.webp" and store under *original* key
+			const match = relHashed.match(/\.([0-9a-f]{8})\.webp$/i);
+			if (match) {
+				const [, hash] = match;
+				hashes[rel] = hash;
+			} else {
+				console.warn(
+					`⚠️ Could not extract hash from processed image path: ${relHashed}`
+				);
+			}
 		}
 	} else {
 		console.warn(`⚠️  No Desktop images folder at ${paths.images}`);
