@@ -19,6 +19,7 @@ export const site = {
 	title: 'Víctor',
 	description: 'Víctor. La curiosidad: infinita.',
 	origin: 'https://vctr.page',
+	ownerName: 'Víctor López Arias',
 	local: 'http://localhost:8788',
 	articlesBase: '/articulos',
 	locale: 'es-ES',

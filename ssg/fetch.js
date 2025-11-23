@@ -35,6 +35,7 @@ export function loadArticles(articlesPath) {
 			title: data.title,
 			description: data.description || null,
 			date: data.date,
+			modified: data.modified || null,
 			author: data.author || null,
 			authorLink: data.authorLink || null,
 			img: data.img,

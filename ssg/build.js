@@ -224,38 +224,70 @@ async function build() {
 		let html = loadTemplateWithExtras(assetMap, articleJsonLd);
 		html = updateHeadPerArticle(html, article, assetMap);
 
+		const publishedStr = formatDate(article.date, site.locale);
+		const modifiedStr =
+			article.modified && article.modified !== article.date
+				? formatDate(article.modified, site.locale)
+				: null;
+
 		const articleHeader = `
-        <h1 class="article-title">${escAttr(article.title)}</h1>
-        ${
-					article.author
-						? article.authorLink
-							? `<div class="article-sub"><p class="date">${formatDate(
-									article.date,
-									site.locale
-							  )}</p><p class="article-author"><a href="${
-									article.authorLink
-							  }" target="_blank" rel="noopener noreferrer">${escAttr(
-									article.author
-							  )}</a><svg
-								class="author-link-icon"
-								width="14"
-								height="14"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path d="M7 17L17 7M17 7H7M17 7V17" />
-							</svg></p></div>`
-							: `<div class="article-sub"><p class="date">${formatDate(
-									article.date,
-									site.locale
-							  )}</p><p class="article-author">${escAttr(
-									article.author
-							  )}</p></div>`
-						: ''
-				}
-        `;
+    <h1 class="article-title">${escAttr(article.title)}</h1>
+    ${
+			article.author
+				? article.authorLink
+					? `<div class="article-sub">
+                        <p class="date">
+                            ${publishedStr}
+                            ${
+															modifiedStr
+																? ` · Actualizado: ${modifiedStr}`
+																: ''
+														}
+                        </p>
+                        <p class="article-author">
+                            <a href="${
+															article.authorLink
+														}" target="_blank" rel="noopener noreferrer">
+                                ${escAttr(article.author)}
+                            </a>
+                            <svg
+                                class="author-link-icon"
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M7 17L17 7M17 7H7M17 7V17" />
+                            </svg>
+                        </p>
+                    </div>`
+					: `<div class="article-sub">
+                        <p class="date">
+                            ${publishedStr}
+                            ${
+															modifiedStr
+																? ` · Actualizado: ${modifiedStr}`
+																: ''
+														}
+                        </p>
+                        <p class="article-author">${escAttr(article.author)}</p>
+                    </div>`
+				: `
+                    <div class="article-sub">
+                        <p class="date">
+                            ${publishedStr}
+                            ${
+															modifiedStr
+																? ` · Actualizado: ${modifiedStr}`
+																: ''
+														}
+                        </p>
+                    </div>
+                `
+		}
+`;
 
 		const imageTag =
 			article.img && assetMap[article.img]

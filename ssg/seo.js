@@ -4,6 +4,12 @@ import { absoluteUrlFor } from './utils.js';
 import { site, paths } from './config.js';
 import { escAttr } from './utils.js';
 
+const BLOG_ID = site.origin + '#blog';
+
+function isoDate(d) {
+	return new Date(d).toISOString();
+}
+
 function hashedAssetUrl(assetMap, logicalName) {
 	// returns absolute URL to the hashed asset, or falls back to logical
 	const p = assetMap?.[logicalName];
@@ -85,9 +91,16 @@ export function buildIndexJsonLd(latest, assetMap) {
 	const blog = {
 		'@context': 'https://schema.org',
 		'@type': 'Blog',
+		'@id': BLOG_ID,
 		name: site.title,
 		url: site.origin + '/',
 		description: site.description,
+		inLanguage: site.locale || 'es-ES',
+		author: {
+			'@type': 'Person',
+			name: site.ownerName,
+			url: site.origin + '/',
+		},
 		blogPost: latest.map((a) => ({
 			'@id': absoluteUrlFor(a, site.origin, site.articlesBase),
 		})),
@@ -112,7 +125,7 @@ export function buildArticleJsonLd(article, assetMap) {
 			description: article.description || article.title,
 			url: absoluteUrlFor(article, site.origin, site.articlesBase),
 			inLanguage: site.locale || 'es-ES',
-			isPartOf: { '@type': 'Blog', '@id': site.origin + '/' },
+			isPartOf: { '@type': 'Blog', '@id': BLOG_ID },
 			author: {
 				'@type': 'Organization',
 				name: site.title,
@@ -137,19 +150,24 @@ export function buildArticleJsonLd(article, assetMap) {
 		return JSON.stringify(obj);
 	}
 
+	const url = absoluteUrlFor(article, site.origin, site.articlesBase);
+	const published = isoDate(article.date);
+	const modified = article.modified ? isoDate(article.modified) : published;
+
 	return JSON.stringify({
 		'@context': 'https://schema.org',
 		'@type': 'BlogPosting',
+		'@id': url,
 		headline: article.title,
 		description: article.description || article.title,
-		datePublished: article.date,
-		dateModified: article.date,
-		url: absoluteUrlFor(article, site.origin, site.articlesBase),
+		datePublished: published,
+		dateModified: modified,
+		url: url,
 		inLanguage: site.locale || 'es-ES',
 		wordCount: article.content
 			? article.content.trim().split(/\s+/).length
 			: undefined,
-		isPartOf: { '@type': 'Blog', '@id': site.origin + '/' },
+		isPartOf: { '@type': 'Blog', '@id': BLOG_ID },
 		author: article.author
 			? {
 					'@type': 'Person',
@@ -157,8 +175,8 @@ export function buildArticleJsonLd(article, assetMap) {
 					...(article.authorLink && { url: article.authorLink }),
 			  }
 			: {
-					'@type': 'Organization',
-					name: site.title,
+					'@type': 'Person',
+					name: site.ownerName,
 					url: site.origin + '/',
 			  },
 		publisher: {
@@ -194,7 +212,9 @@ export function writeSitemap(articles, totalPages) {
 			.filter((a) => !a.link && a.title !== '404' && a.title !== '500')
 			.map((a) => {
 				const loc = absoluteUrlFor(a, site.origin, site.articlesBase);
-				return `<url><loc>${loc}</loc><lastmod>${a.date}</lastmod></url>`;
+				return `<url><loc>${loc}</loc><lastmod>${
+					a.modified || a.date
+				}</lastmod></url>`;
 			}),
 	];
 	const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join(
