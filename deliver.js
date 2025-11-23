@@ -295,6 +295,11 @@ async function buildEmailHtml({
               </td>
             </tr>
             <tr>
+				<td style="padding: 0; text-align: center">
+					<p style="margin: 0; font-size: 14px; color: #4b5563">Gracias por estar suscrito.</p>
+				</td>
+			</tr>
+            <tr>
               <td style="padding: 10px 0 34px 0; text-align: center">
                 <a
                   href="https://vctr.page"
@@ -509,7 +514,7 @@ async function sendNewsletterBatch(emails, ctx) {
 		const url = buildArticleUrl(latestArticle);
 
 		const firstParagraphHtml = extractFirstParagraph(latestArticle.content);
-		const subject = latestArticle.title;
+		const subject = 'Nueva publicación: ' + latestArticle.title;
 
 		let imgUrl = '';
 		if (latestArticle.img) {
