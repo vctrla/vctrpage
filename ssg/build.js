@@ -23,10 +23,11 @@ import { loadArticles } from './fetch.js';
 import { generateCdnHeaders } from './cloudflare.js';
 import { landingImgTag, articleImgTag } from './imgs.js';
 
-// const IS_PROD = process.env.NODE_ENV === 'production';
+const IS_PROD = process.env.NODE_ENV === 'production';
 const ARTICLES_ON_LANDING = 4;
 const ARTICLES_PER_PAGE = 3;
 const articlesWithoutHeader = ['404', '500'];
+const MAX_INTERNAL_LINKS = 3;
 
 function renderArticlesList(articles, assetMap, { isLanding = false } = {}) {
 	return `<ul class="landing-list">
@@ -89,6 +90,109 @@ function buildMoreBtn(nextUrl) {
 			<noscript><a href="${nextUrl}">Ver más</a></noscript>
 		  </div>`
 		: '';
+}
+
+function buildInternalLinking(article, allArticles, assetMap) {
+	const links = [];
+
+	// explicit linking -> article.linking is an array of slugs
+	if (Array.isArray(article.linking) && article.linking.length) {
+		for (const slug of article.linking) {
+			const target = allArticles.find((a) => a.slug === slug);
+			if (target && target.slug !== article.slug) {
+				links.push(target);
+				if (links.length === MAX_INTERNAL_LINKS) break;
+			}
+		}
+	}
+
+	// first fallback: fill remaining with most recent articles from the same category
+	if (links.length < MAX_INTERNAL_LINKS && article.category) {
+		const remaining = allArticles
+			.filter(
+				(a) =>
+					a.slug !== article.slug &&
+					a.category === article.category &&
+					!links.some((l) => l.slug === a.slug)
+			)
+			.slice(0, MAX_INTERNAL_LINKS - links.length);
+
+		links.push(...remaining);
+	}
+
+	// final fallback with "non-github" precedence
+	if (links.length < MAX_INTERNAL_LINKS) {
+		// candidates: all articles except current + already linked
+		const candidates = allArticles.filter(
+			(a) => a.slug !== article.slug && !links.some((l) => l.slug === a.slug)
+		);
+
+		// 1) first, non-github categories
+		const nonGithub = candidates
+			.filter((a) => a.category !== 'github')
+			.slice(0, MAX_INTERNAL_LINKS - links.length);
+
+		links.push(...nonGithub);
+
+		// 2) if still not filled -> allow remaining (incl. github)
+		if (links.length < MAX_INTERNAL_LINKS) {
+			const remainingGlobal = candidates
+				.filter((a) => !links.some((l) => l.slug === a.slug)) // avoid dupes
+				.slice(0, MAX_INTERNAL_LINKS - links.length);
+
+			links.push(...remainingGlobal);
+		}
+	}
+
+	// nothing ->  don't render anything
+	if (!links.length) return '';
+
+	// build html
+	const itemsHtml = links
+		.map((a) => {
+			const href = hrefFor(a, site.articlesBase);
+			const targetAttr = a.link
+				? ' target="_blank" rel="noopener noreferrer"'
+				: '';
+
+			const imgTag =
+				a.img && assetMap[a.img]
+					? landingImgTag({
+							asset: assetMap[a.img],
+							title: a.title,
+							highPriority: false,
+					  })
+					: '';
+
+			const authorTag = a.author
+				? `<p class="article-author">${escAttr(a.author)}</p>`
+				: '';
+
+			return `
+				<li class="internal-linking-item">
+					<a class="internal-linking-link" href="${href}"${targetAttr}>
+						${imgTag}
+						<div class="internal-linking-item-text">
+							<p class="internal-linking-title">${escAttr(a.title)}</p>
+							<div class="internal-linking-item-meta">
+								<p class="date">${formatDate(a.date, site.locale)}</p>
+								${authorTag}
+							</div>
+						</div>
+					</a>
+				</li>
+			`;
+		})
+		.join('\n');
+
+	return `
+		<aside class="internal-linking" role="complementary">
+			<h2 class="internal-linking-title">También puede interesarte:</h2>
+			<ul class="internal-linking-list">
+				${itemsHtml}
+			</ul>
+		</aside>
+	`;
 }
 
 // BUILD
@@ -294,8 +398,19 @@ async function build() {
 				? articleImgTag({ asset: assetMap[article.img], title: article.title })
 				: '';
 
+		const linkableArticles = articles.filter((a) => a.category !== 'meta');
+
+		const internalLinking = buildInternalLinking(
+			article,
+			linkableArticles,
+			assetMap
+		);
+
 		if (!articlesWithoutHeader.includes(article.title)) {
-			html = injectContent(html, articleHeader + imageTag + article.content);
+			html = injectContent(
+				html,
+				articleHeader + imageTag + article.content + internalLinking
+			);
 		} else {
 			html = injectContent(html, article.content);
 		}

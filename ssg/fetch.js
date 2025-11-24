@@ -43,6 +43,7 @@ export function loadArticles(articlesPath) {
 			filePath,
 			isTopLevel: parts.length === 1,
 			category: data.category || null,
+			linking: data['linking'] || null,
 		};
 	});
 
