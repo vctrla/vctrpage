@@ -10,6 +10,7 @@ import {
 	injectRssLink,
 } from './utils.js';
 import { processAssets } from './assets.js';
+import { embedNewsletter } from './newsletter.js';
 import { loadTemplateWithExtras, updateHeadPerArticle } from './templates.js';
 import {
 	buildArticleJsonLd,
@@ -225,11 +226,26 @@ async function build() {
 	const jsonLdMin = buildIndexJsonLd(latestArticles, assetMap);
 	const baseTemplate = loadTemplateWithExtras(assetMap, jsonLdMin);
 
+	// email newsletter HTML
+	const turnstileSiteKey = IS_PROD
+		? '0x4AAAAAACBv_qQyd1sIX-Ve'
+		: '3x00000000000000000000FF'; // testing key (always shows visible)
+	//  : '1x00000000000000000000BB'; // testing key (always passes invisible)
+
+	const landingNewsletterHtml = embedNewsletter(
+		'Recibe nuevos artículos en tu correo:',
+		turnstileSiteKey
+	);
+	const articleNewsletterHtml = embedNewsletter(
+		'Si te ha gustado este artículo, <br>recibe los próximos por email:',
+		turnstileSiteKey
+	);
+
 	// index.html
 	const listHtml = renderArticlesList(latestArticles, assetMap, {
 		isLanding: true,
 	});
-	let indexHtml = injectContent(baseTemplate, listHtml);
+	let indexHtml = injectContent(baseTemplate, listHtml + landingNewsletterHtml);
 	indexHtml = injectRssLink(indexHtml);
 
 	if (paginated.length > 0) {
@@ -409,7 +425,11 @@ async function build() {
 		if (!articlesWithoutHeader.includes(article.title)) {
 			html = injectContent(
 				html,
-				articleHeader + imageTag + article.content + internalLinking
+				articleHeader +
+					imageTag +
+					article.content +
+					articleNewsletterHtml +
+					internalLinking
 			);
 		} else {
 			html = injectContent(html, article.content);

@@ -102,15 +102,6 @@ export async function processAssets() {
 					const endpoint = IS_PROD ? site.origin : site.local;
 					code = code.replace(/__ENDPOINT__/g, JSON.stringify(endpoint));
 
-					const turnstileSiteKey = IS_PROD
-						? '0x4AAAAAACBv_qQyd1sIX-Ve'
-						: '3x00000000000000000000FF'; // testing key (always shows challenge)
-
-					code = code.replace(
-						/__TURNSTILE_KEY__/g,
-						JSON.stringify(turnstileSiteKey)
-					);
-
 					const result = await terserMinify(code, {
 						module: true,
 						compress: {
