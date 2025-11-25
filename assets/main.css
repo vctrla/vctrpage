@@ -21,7 +21,7 @@ body {
 footer {
 	display: flex;
 	flex-direction: column;
-	margin: 30px auto;
+	margin: 30px auto 60px auto;
 	justify-content: center;
 	align-items: center;
 	gap: 25px;
@@ -57,7 +57,8 @@ nav {
 	justify-content: center;
 	align-items: center;
 	border-top: dashed black 1.5px;
-	padding-top: 30px;
+	border-bottom: dashed black 1.5px;
+	padding: 30px 0 30px 0;
 	margin: 30px auto 0 auto;
 }
 
@@ -394,6 +395,12 @@ ul.notes {
 	gap: 20px;
 }
 
+.internal-linking {
+	margin: 30px 0;
+	padding-bottom: 30px;
+	border-bottom: dashed black 1.5px;
+}
+
 .internal-linking-list {
 	display: flex;
 	flex-direction: column;
@@ -450,10 +457,9 @@ ul.notes {
 h2.internal-linking-title {
 	color: var(--color-gray);
 	font-size: 16px;
-	margin-top: 30px;
-	padding: 20px 0;
+	margin: 0;
+	padding: 0 0 20px 0;
 	border-bottom: none;
-	border-top: dashed black 1.5px;
 }
 
 @media (max-width: 700px) {
@@ -465,10 +471,6 @@ h2.internal-linking-title {
 @media (max-width: 600px) {
 	body {
 		padding: 0 15px;
-	}
-
-	nav {
-		justify-content: space-between;
 	}
 
 	.landing-item {
