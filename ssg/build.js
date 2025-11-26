@@ -229,8 +229,8 @@ async function build() {
 	// email newsletter HTML
 	const turnstileSiteKey = IS_PROD
 		? '0x4AAAAAACBv_qQyd1sIX-Ve'
-		: // : '3x00000000000000000000FF'; // testing key (always shows visible)
-		  '1x00000000000000000000BB'; // testing key (always passes invisible)
+		: '3x00000000000000000000FF'; // testing key (always shows visible)
+	//   '1x00000000000000000000BB'; // testing key (always passes invisible)
 
 	const landingNewsletterHtml = embedNewsletter(
 		'Recibe nuevos artículos en tu correo:',
@@ -455,7 +455,7 @@ async function build() {
 	}
 
 	writeRobotsTxt();
-	writeSitemap(articles, paginated.length + 1);
+	writeSitemap(articles, latestArticles, paginated);
 	writeRSS(articles, 12);
 
 	const icoSrc = path.join(paths.rootDir, 'favicon.ico');

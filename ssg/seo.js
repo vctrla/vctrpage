@@ -37,8 +37,8 @@ export function buildMeta(
 	let ogResolved = '';
 
 	if (ogImage) {
-		// if a full URL was provided -> use it as-is
-		// if a logical name was provided -> try to hash-resolve it
+		// if full URL was provided -> use it as-is
+		// if logical name was provided -> try to hash-resolve it
 		const looksLikeUrl = /^https?:\/\//i.test(ogImage);
 		ogResolved = looksLikeUrl
 			? ogImage
@@ -200,29 +200,59 @@ export function writeRobotsTxt() {
 	fs.writeFileSync(path.join(paths.dist, 'robots.txt'), robots, 'utf-8');
 }
 
-export function writeSitemap(articles, totalPages) {
-	const today = new Date().toISOString().split('T')[0];
-	const urls = [
-		`<url><loc>${site.origin}/</loc><lastmod>${today}</lastmod></url>`,
-		...Array.from({ length: totalPages - 1 }, (_, i) => {
-			const page = i + 2; // pages start at 2
-			return `<url><loc>${site.origin}/page/${page}</loc><lastmod>${today}</lastmod></url>`;
-		}),
-		...articles
-			.filter((a) => !a.link && a.title !== '404' && a.title !== '500')
-			.map((a) => {
-				const loc = absoluteUrlFor(a, site.origin, site.articlesBase);
-				return `<url><loc>${loc}</loc><lastmod>${
-					a.modified || a.date
-				}</lastmod></url>`;
-			}),
-	];
+export function writeSitemap(allArticles, latestArticles, paginated) {
+	const formatDate = (d) => new Date(d).toISOString().split('T')[0];
+
+	// helper: lastmod for a list of articles (modified || date)
+	const lastmodForList = (list) => {
+		if (!list || list.length === 0) {
+			return formatDate(new Date());
+		}
+
+		const latest = list.reduce((max, a) => {
+			const d = new Date(a.modified || a.date);
+			return d > max ? d : max;
+		}, new Date(0));
+
+		return formatDate(latest);
+	};
+
+	const urls = [];
+
+	// homepage: only based on articles shown on landing
+	urls.push(
+		`<url><loc>${site.origin}/</loc><lastmod>${lastmodForList(
+			latestArticles
+		)}</lastmod></url>`
+	);
+
+	// paginated pages: based on subset of articles rendered on each page
+	for (let i = 0; i < paginated.length; i++) {
+		const pageArticles = paginated[i];
+		const pageNum = i + 2; // pages start at /page/2
+		const loc = `${site.origin}/page/${pageNum}`;
+		const lastmod = lastmodForList(pageArticles);
+
+		urls.push(`<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod></url>`);
+	}
+
+	// individual article urls
+	const articleUrls = allArticles
+		.filter((a) => !a.link && a.title !== '404' && a.title !== '500')
+		.map((a) => {
+			const loc = absoluteUrlFor(a, site.origin, site.articlesBase);
+			const lastmod = formatDate(a.modified || a.date);
+			return `<url><loc>${loc}</loc><lastmod>${lastmod}</lastmod></url>`;
+		});
+
+	urls.push(...articleUrls);
+
 	const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join(
 		'\n'
 	)}\n</urlset>`;
+
 	fs.writeFileSync(path.join(paths.dist, 'sitemap.xml'), sitemap, 'utf-8');
 }
-
 export function writeRSS(articles, limit = 20) {
 	const latest = articles
 		.filter((a) => !a.link && !a.isTopLevel) // only real articles
