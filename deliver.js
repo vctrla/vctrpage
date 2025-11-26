@@ -262,7 +262,7 @@ async function buildEmailHtml({
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:500px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e5e5;">
             <tr>
               <td style="padding:24px;">
-                <h1 style="margin: 0;font-size:22px;line-height:1.3;color:#111827;">
+                <h1 style="margin: 0 0 10px 0;font-size:22px;line-height:1.3;color:#111827;">
                   ${escapeHtml(title)}
                 </h1>
                 ${safeFirstParagraph}

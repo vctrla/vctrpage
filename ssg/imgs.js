@@ -24,7 +24,7 @@ export async function processImage(absPath, relPath, distDir) {
 			kernel: sharp.kernel.lanczos3,
 			fit: 'inside',
 		})
-		.modulate({ saturation: 0 }) // desaturate completely
+		// .modulate({ saturation: 0 }) // desaturate completely
 		.webp({ quality: config.quality, effort: 6, smartSubsample: true })
 		.toBuffer();
 
