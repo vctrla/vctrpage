@@ -17,7 +17,7 @@ export const paths = {
 
 export const site = {
 	title: 'Víctor',
-	description: 'Víctor. La curiosidad: infinita.',
+	description: 'Víctor. Todo es campo de exploración.',
 	origin: 'https://vctr.page',
 	ownerName: 'Víctor López Arias',
 	local: 'http://localhost:8788',

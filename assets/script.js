@@ -61,8 +61,9 @@ function getNewsletterElements() {
 	const input = form.querySelector('.newsletter-input');
 	const button = form.querySelector('.newsletter-go');
 	const message = form.querySelector('.newsletter-message');
+	const website = form.querySelector('input[name="website"]');
 
-	return { form, input, button, message };
+	return { form, input, button, message, website };
 }
 
 function resetNewsletterTurnstile() {
@@ -173,15 +174,16 @@ function setNewsletterState(state) {
 
 			newsletterErrorTimeoutId = setTimeout(() => {
 				newsletterErrorTimeoutId = null;
-				const { input: currentInput } = getNewsletterElements();
+				const { input: currentInput, website } = getNewsletterElements();
 				if (currentInput) currentInput.value = '';
+				if (website) website.value = '';
 				setNewsletterState('idle');
 			}, 2000);
 			break;
 	}
 }
 
-async function submitNewsletter(email) {
+async function submitNewsletter(email, websiteValue) {
 	const controller = new AbortController();
 	const timeoutMs = 20000;
 
@@ -198,6 +200,7 @@ async function submitNewsletter(email) {
 			},
 			body: JSON.stringify({
 				email,
+				website: websiteValue,
 				turnstileToken: newsletterTurnstileToken || null,
 			}),
 			signal: controller.signal,
@@ -244,8 +247,10 @@ async function handleNewsletterSubmit(e) {
 		return;
 	}
 
-	const { input } = getNewsletterElements();
+	const { input, website, message } = getNewsletterElements();
 	if (!input) return;
+
+	const websiteValue = website ? website.value : '';
 
 	if (!input.checkValidity()) {
 		if (input.reportValidity) input.reportValidity();
@@ -253,7 +258,6 @@ async function handleNewsletterSubmit(e) {
 	}
 
 	if (!newsletterTurnstileToken) {
-		const { message } = getNewsletterElements();
 		if (message) {
 			message.textContent = 'Por favor, completa la verificación.';
 			message.classList.add('newsletter-error');
@@ -264,7 +268,7 @@ async function handleNewsletterSubmit(e) {
 	setNewsletterState('loading');
 
 	try {
-		const res = await submitNewsletter(input.value);
+		const res = await submitNewsletter(input.value, websiteValue);
 
 		if (!res.ok) {
 			// special handling for timeout / network errors

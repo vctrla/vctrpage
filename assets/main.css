@@ -5,7 +5,7 @@
 	--color-gray: #707070;
 	--color-light-gray: #f1f1f1;
 	--color-note: #646464;
-	--color-link: #335cff;
+	--color-link: #869eff;
 }
 
 body {
@@ -202,7 +202,7 @@ a {
 	display: flex;
 	flex-direction: column;
 	align-items: flex-start;
-	gap: 20px;
+	gap: 8px;
 }
 
 .landing-item-meta {
@@ -238,7 +238,7 @@ a.gray {
 h1.article-title {
 	font-size: 24px;
 	font-weight: 400;
-	margin: 20px 0;
+	margin-bottom: 20px;
 }
 
 h2 {
@@ -480,7 +480,7 @@ h2.internal-linking-title {
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 10px;
+		gap: 3px;
 	}
 
 	.wrapper {
@@ -508,15 +508,9 @@ h2.internal-linking-title {
 }
 
 @media (max-width: 500px) {
-	/* spacing between list items */
-	.internal-linking-list,
-	.landing-list {
-		gap: 40px;
-	}
-
 	.landing-item:first-of-type,
 	.landing-item:nth-of-type(3n + 4) {
-		padding-bottom: 42px;
+		padding-bottom: 30px;
 		border-bottom: dashed black 1.5px;
 	}
 
@@ -539,7 +533,7 @@ h2.internal-linking-title {
 	.landing-item-meta {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 3px;
 		align-items: flex-start;
 		width: 100%;
 		text-align: left;

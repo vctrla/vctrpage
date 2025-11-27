@@ -15,9 +15,12 @@ export function embedNewsletter(ctaText, turnstileSiteKey) {
             <div class="newsletter-field">
                 <div class="newsletter-row">
                     <input
+                        id="newsletter-email"
+                        name="email"
                         type="email"
                         placeholder="${ctaPlaceholder}"
                         class="newsletter-input"
+                        autocomplete="email"
                         required
                     />
                     <input
