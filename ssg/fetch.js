@@ -45,6 +45,7 @@ export function loadArticles(articlesPath) {
 			category: data.category || null,
 			linking: data['linking'] || null,
 			sources: data.sources || '',
+			newsletter: data.newsletter || null,
 		};
 	});
 

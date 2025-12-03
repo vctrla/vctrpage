@@ -9,7 +9,7 @@
 		"devcf": "npm run devwatch & wrangler pages dev dist",
 		"predeploy": "rm -rf dist && npm run build",
 		"deploy": "wrangler pages deploy --project-name=vctr --branch=main --commit-dirty=true",
-		"deliver": "npm run deploy && node deliver.js",
+		"deliver": "node send-newsletter.js",
 		"deploy:cleanup": "wrangler deploy --config workers/cleanup/wrangler.jsonc",
 		"dev:cleanup": "wrangler dev --config workers/cleanup/wrangler.jsonc --test-scheduled"
 	},
@@ -27,7 +27,6 @@
 	"dependencies": {
 		"@aws-sdk/client-sesv2": "^3.932.0",
 		"aws4fetch": "^1.0.20",
-		"dotenv": "^17.2.3",
-		"twitter-api-v2": "^1.28.0"
+		"dotenv": "^17.2.3"
 	}
 }

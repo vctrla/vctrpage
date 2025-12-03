@@ -7,7 +7,6 @@ import { encodeEmail, signEmailWithTs } from './functions/_utils/unsub.js';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2';
-import { TwitterApi } from 'twitter-api-v2';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,17 +26,7 @@ const SES_REPLY = process.env.SES_REPLY_TO
 	? [process.env.SES_REPLY_TO]
 	: undefined;
 const UNSUB_SECRET = process.env.NEWSLETTER_UNSUBSCRIBE_SECRET;
-const X_API_KEY = process.env.X_API_KEY;
-const X_API_SECRET = process.env.X_API_SECRET;
-const X_ACCESS_TOKEN = process.env.X_ACCESS_TOKEN;
-const X_ACCESS_SECRET = process.env.X_ACCESS_SECRET;
-
-const twitterClient = new TwitterApi({
-	appKey: X_API_KEY,
-	appSecret: X_API_SECRET,
-	accessToken: X_ACCESS_TOKEN,
-	accessSecret: X_ACCESS_SECRET,
-}).readWrite;
+const NEWSLETTER_TEST_EMAIL = process.env.NEWSLETTER_TEST_EMAIL;
 
 const sesClient = new SESv2Client({ region: AWS_REGION });
 
@@ -90,40 +79,6 @@ function buildArticleUrl(article) {
 	const base = BASE_URL.replace(/\/+$/, '');
 	const slugPart = String(slug).replace(/^\/+/, '');
 	return `${base}/${slugPart}`;
-}
-
-function extractFirstParagraph(html) {
-	if (!html) return '';
-
-	const match = html.match(/<p[^>]*>[\s\S]*?<\/p>/i);
-	if (!match) return '';
-
-	let paragraph = match[0];
-
-	paragraph = paragraph.replace(
-		/<p([^>]*)>/i,
-		'<p$1 style="margin: 16px 0 0 0;">'
-	);
-
-	paragraph = paragraph.replace(
-		/(<p[^>]*>)([\s\S]*?)(<\/p>)/i,
-		(full, open, content, close) => {
-			let trimmed = content.trim();
-
-			if (trimmed.endsWith('...')) {
-				return `${open}${trimmed}${close}`;
-			}
-
-			if (trimmed.endsWith('.')) {
-				trimmed = trimmed.slice(0, -1) + '...';
-				return `${open}${trimmed}${close}`;
-			}
-
-			return `${open}${trimmed}...${close}`;
-		}
-	);
-
-	return paragraph;
 }
 
 // confirm prompt in console
@@ -254,8 +209,20 @@ async function buildEmailHtml({
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(title)}</title>
+    <style>
+        .lead {
+            margin: 16px 0 0 0 !important;
+        }
+        .quote {
+            background-color: #f1f1f1 !important;
+            border-radius: 10px !important;
+            padding: 8px !important;
+            color: #000 !important;
+            font-style: italic !important;
+        }  
+    </style>
   </head>
-  <body style="margin:0;padding:0;background:#f5f5f5;font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.5; color:#111;">
+  <body style="margin:0; padding:0; background:#f5f5f5; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height:1.5; color:#111;">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f5f5;padding:24px 0;">
       <tr>
         <td align="center">
@@ -282,7 +249,7 @@ async function buildEmailHtml({
 										style="
 											display: block;
 											width: 100%;
-											height: 200px;
+											height: 250px;
 											object-fit: cover;
 											object-position: center;
 											border-radius: 6px;
@@ -372,34 +339,6 @@ function escapeHtml(str = '') {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
-}
-
-// *
-// **
-// ***
-// ****
-// ***** twitter
-
-async function tweetArticle({ title, url }) {
-	let text = `${title} ${url}`;
-
-	// 280-char safety: if too long -> truncate title but keep url
-	const MAX_TWEET_LENGTH = 280;
-	if (text.length > MAX_TWEET_LENGTH) {
-		const reservedForUrlAndSpace = url.length + 1; // " " + url
-		const maxTitleLength = MAX_TWEET_LENGTH - reservedForUrlAndSpace;
-
-		let safeTitle = title;
-		if (safeTitle.length > maxTitleLength) {
-			// leave space for the ellipsis
-			safeTitle = safeTitle.slice(0, maxTitleLength - 1).trim() + '…';
-		}
-
-		text = `${safeTitle} ${url}`;
-	}
-
-	const resp = await twitterClient.v2.tweet(text);
-	console.log('✅ Tweet posted. ID:', resp.data?.id);
 }
 
 // *
@@ -513,7 +452,11 @@ async function sendNewsletterBatch(emails, ctx) {
 		const latestArticle = articles[0];
 		const url = buildArticleUrl(latestArticle);
 
-		const firstParagraphHtml = extractFirstParagraph(latestArticle.content);
+		const firstParagraphHtml = String(latestArticle.newsletter).trim();
+
+		console.log('Latest article keys:', Object.keys(latestArticle));
+		console.log('latestArticle.newsletter:', latestArticle.newsletter);
+
 		const subject = 'Nueva publicación: ' + latestArticle.title;
 
 		let imgUrl = '';
@@ -537,17 +480,6 @@ async function sendNewsletterBatch(emails, ctx) {
 		console.log(` > URL:   ${url}`);
 		console.log(` > Img:   ${imgUrl}\n`);
 
-		const tweetOk = await confirm('Post article on X (Twitter)?');
-		if (!tweetOk) {
-			console.log('🛑 Skipping tweet.');
-		} else {
-			try {
-				await tweetArticle({ title: latestArticle.title, url });
-			} catch (err) {
-				console.error('❌ Error sending tweet:', err);
-			}
-		}
-
 		const emails = await getConfirmedEmails();
 		console.log(`\nFound ${emails.length} confirmed subscribers.`);
 		if (emails.length === 0) {
@@ -555,21 +487,47 @@ async function sendNewsletterBatch(emails, ctx) {
 			return;
 		}
 
-		const ok = await confirm('Send this newsletter to confirmed subscribers?');
-		if (!ok) {
-			console.log('🛑 Aborted. No emails sent.');
-			return;
-		}
-
-		// send emails with limited concurrency (individual content per recipient)
-		const { sent, failed, failedEmails } = await sendNewsletterBatch(emails, {
+		const ctx = {
 			latestArticle,
 			url,
 			subject,
 			firstParagraphHtml,
 			imgUrl,
 			externalLink: Boolean(latestArticle.link),
-		});
+		};
+
+		if (NEWSLETTER_TEST_EMAIL) {
+			console.log(`\n📨 Sending test email to ${NEWSLETTER_TEST_EMAIL}...`);
+
+			const testOk = await sendOneWithRetry(NEWSLETTER_TEST_EMAIL, ctx);
+
+			if (!testOk) {
+				console.error('❌ Failed to send test email. Aborting.');
+				return;
+			}
+
+			const proceed = await confirm('⏸️ Test email sent. Continue?');
+
+			if (!proceed) {
+				console.log('🛑 Aborted after test. No emails sent.');
+				return;
+			}
+		} else {
+			// Fallback: old behaviour if no test email is set
+			const ok = await confirm(
+				'Send this newsletter to confirmed subscribers?'
+			);
+			if (!ok) {
+				console.log('🛑 Aborted. No emails sent.');
+				return;
+			}
+		}
+
+		// send emails with limited concurrency (individual content per recipient)
+		const { sent, failed, failedEmails } = await sendNewsletterBatch(
+			emails,
+			ctx
+		);
 
 		console.log(
 			`✅ Successfully sent to ${sent}/${emails.length} addresses. ${
