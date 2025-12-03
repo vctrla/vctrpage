@@ -368,6 +368,7 @@ async function build() {
 
 		const articleHeader = `
     <h1 class="article-title">${escAttr(article.title)}</h1>
+    <p class="article-description">${escAttr(article.description)}</p>
     ${
 			article.author
 				? article.authorLink
