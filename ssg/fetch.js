@@ -44,6 +44,7 @@ export function loadArticles(articlesPath) {
 			isTopLevel: parts.length === 1,
 			category: data.category || null,
 			linking: data['linking'] || null,
+			sources: data.sources || '',
 		};
 	});
 

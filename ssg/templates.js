@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { escapeRegex, absoluteUrlFor } from './utils.js';
+import { escapeRegex, absoluteUrlFor, isoDate } from './utils.js';
 import { site, paths } from './config.js';
 import { buildMeta } from './seo.js';
 
@@ -13,7 +13,7 @@ export function loadTemplateWithExtras(assetMap, jsonLdMin) {
 		{
 			title: site.title,
 			description: site.description,
-			canonical: site.origin + '/',
+			canonical: site.origin,
 			ogImage: site.ogImg,
 			type: 'website',
 		},
@@ -58,11 +58,16 @@ export function updateHeadPerArticle(html, article, assetMap) {
 
 	const metaType = article.isTopLevel ? 'website' : 'article';
 
+	const published = isoDate(article.date);
+	const modified = article.modified ? isoDate(article.modified) : published;
+
 	const head = buildMeta(
 		{
 			title: article.title,
 			description: article.description || article.title || site.description,
 			canonical,
+			published,
+			modified,
 			ogImage,
 			type: metaType,
 			robots: isError ? 'noindex, nofollow' : 'index, follow',

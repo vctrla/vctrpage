@@ -12,7 +12,7 @@ import { TwitterApi } from 'twitter-api-v2';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const ARTICLES_ROOT = path.resolve(__dirname, '..', 'articles');
+const ARTICLES_ROOT = path.resolve(__dirname, '../content/writings');
 const HASHES = JSON.parse(
 	fs.readFileSync(path.resolve(__dirname, './hashes.json'), 'utf8')
 );

@@ -2,13 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { absoluteUrlFor } from './utils.js';
 import { site, paths } from './config.js';
-import { escAttr } from './utils.js';
+import { escAttr, isoDate } from './utils.js';
 
 const BLOG_ID = site.origin + '#blog';
-
-function isoDate(d) {
-	return new Date(d).toISOString();
-}
 
 function hashedAssetUrl(assetMap, logicalName) {
 	// returns absolute URL to the hashed asset, or falls back to logical
@@ -24,6 +20,8 @@ export function buildMeta(
 		ogImage,
 		robots = 'index, follow',
 		type = 'website',
+		published,
+		modified,
 		skipCanonical = false,
 	},
 	assetMap
@@ -55,6 +53,13 @@ export function buildMeta(
 
 	const og = escAttr(ogResolved);
 	const locale = (site.locale || 'es-ES').replace('-', '_');
+	const publishedTag = published
+		? `<meta property="article:published_time" content="${published}" />`
+		: '';
+
+	const modifiedTag = modified
+		? `<meta property="article:modified_time" content="${modified}" />`
+		: '';
 
 	return `
 <title>${t}</title>
@@ -70,6 +75,8 @@ ${skipCanonical ? '' : `<link rel="canonical" href="${c}" />`}
 <meta property="og:url" content="${c}" />
 <meta property="og:image" content="${og}" />
 <meta property="og:locale" content="${locale}" />
+${publishedTag}
+${modifiedTag}
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${t}" />
 <meta name="twitter:description" content="${d}" />
@@ -154,6 +161,8 @@ export function buildArticleJsonLd(article, assetMap) {
 	const published = isoDate(article.date);
 	const modified = article.modified ? isoDate(article.modified) : published;
 
+	const stripHtml = (html) => html.replace(/<[^>]*>/g, '');
+
 	return JSON.stringify({
 		'@context': 'https://schema.org',
 		'@type': 'BlogPosting',
@@ -165,7 +174,7 @@ export function buildArticleJsonLd(article, assetMap) {
 		url: url,
 		inLanguage: site.locale || 'es-ES',
 		wordCount: article.content
-			? article.content.trim().split(/\s+/).length
+			? stripHtml(article.content).trim().split(/\s+/).length
 			: undefined,
 		isPartOf: { '@type': 'Blog', '@id': BLOG_ID },
 		author: article.author

@@ -79,12 +79,16 @@ export function uniqueSlugs(items, getBase, setSlug) {
 	}
 }
 
-export function formatDate(isoDate, locale = 'es-ES') {
-	return new Date(isoDate).toLocaleDateString(locale, {
+export function formatDate(isoDatePar, locale = 'es-ES') {
+	return new Date(isoDatePar).toLocaleDateString(locale, {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',
 	});
+}
+
+export function isoDate(d) {
+	return new Date(d).toISOString();
 }
 
 export function hrefFor(a, base) {

@@ -31,7 +31,8 @@ const articlesWithoutHeader = ['404', '500'];
 const MAX_INTERNAL_LINKS = 3;
 
 function renderArticlesList(articles, assetMap, { isLanding = false } = {}) {
-	return `<ul class="landing-list">
+	return `<h1 class="visually-hidden">Artículos de Víctor</h1>
+    <ul class="landing-list">
         ${articles
 					.filter((a) => !a.isTopLevel)
 					.map((a, i) => {
@@ -61,11 +62,18 @@ function renderArticlesList(articles, assetMap, { isLanding = false } = {}) {
                                                 <p class="landing-title">${escAttr(
 																									a.title
 																								)}</p>
+                                                <p class="landing-description">${escAttr(
+																									a.description
+																								)}</p>
                                                 <div class="landing-item-meta">
-                                                    <p class="date">${formatDate(
-																											a.date,
-																											site.locale
-																										)}</p>
+                                                    <p class="date">
+                                                        <time datetime="${
+																													a.date
+																												}">${formatDate(
+							a.date,
+							site.locale
+						)}</time>
+                                                    </p>
                                                     ${authorTag}
                                                 </div>
                                             </div>
@@ -121,21 +129,21 @@ function buildInternalLinking(article, allArticles, assetMap) {
 		links.push(...remaining);
 	}
 
-	// final fallback with "non-github" precedence
+	// final fallback with "non-git" precedence
 	if (links.length < MAX_INTERNAL_LINKS) {
 		// candidates: all articles except current + already linked
 		const candidates = allArticles.filter(
 			(a) => a.slug !== article.slug && !links.some((l) => l.slug === a.slug)
 		);
 
-		// 1) first, non-github categories
-		const nonGithub = candidates
-			.filter((a) => a.category !== 'github')
+		// 1) first, non-git categories
+		const nonGit = candidates
+			.filter((a) => a.category !== 'git')
 			.slice(0, MAX_INTERNAL_LINKS - links.length);
 
-		links.push(...nonGithub);
+		links.push(...nonGit);
 
-		// 2) if still not filled -> allow remaining (incl. github)
+		// 2) if still not filled -> allow remaining (incl. git)
 		if (links.length < MAX_INTERNAL_LINKS) {
 			const remainingGlobal = candidates
 				.filter((a) => !links.some((l) => l.slug === a.slug)) // avoid dupes
@@ -175,8 +183,16 @@ function buildInternalLinking(article, allArticles, assetMap) {
 						${imgTag}
 						<div class="internal-linking-item-text">
 							<p class="internal-linking-title">${escAttr(a.title)}</p>
+                            <p class="internal-linking-description">${escAttr(
+															a.description
+														)}</p>
 							<div class="internal-linking-item-meta">
-								<p class="date">${formatDate(a.date, site.locale)}</p>
+								<p class="date">
+                                    <time datetime="${a.date}">${formatDate(
+				a.date,
+				site.locale
+			)}</time>
+                                </p>
 								${authorTag}
 							</div>
 						</div>
@@ -187,8 +203,8 @@ function buildInternalLinking(article, allArticles, assetMap) {
 		.join('\n');
 
 	return `
-		<aside class="internal-linking" role="complementary">
-			<h2 class="internal-linking-title">También puede interesarte:</h2>
+		<aside class="internal-linking" role="complementary" aria-labelledby="relacionados-titulo">
+			<h2 id="relacionados-titulo" class="internal-linking-title">También puede interesarte:</h2>
 			<ul class="internal-linking-list">
 				${itemsHtml}
 			</ul>
@@ -357,10 +373,12 @@ async function build() {
 				? article.authorLink
 					? `<div class="article-sub">
                         <p class="date">
-                            ${publishedStr}
+                            <time datetime="${
+															article.date
+														}">${publishedStr}</time>
                             ${
 															modifiedStr
-																? ` · Actualizado: ${modifiedStr}`
+																? ` · Actualizado: <time datetime="${article.modified}">${modifiedStr}</time>`
 																: ''
 														}
                         </p>
@@ -385,10 +403,12 @@ async function build() {
                     </div>`
 					: `<div class="article-sub">
                         <p class="date">
-                            ${publishedStr}
+                            <time datetime="${
+															article.date
+														}">${publishedStr}</time>
                             ${
 															modifiedStr
-																? ` · Actualizado: ${modifiedStr}`
+																? ` · Actualizado: <time datetime="${article.modified}">${modifiedStr}</time>`
 																: ''
 														}
                         </p>
@@ -397,10 +417,12 @@ async function build() {
 				: `
                     <div class="article-sub">
                         <p class="date">
-                            ${publishedStr}
+                            <time datetime="${
+															article.date
+														}">${publishedStr}</time>
                             ${
 															modifiedStr
-																? ` · Actualizado: ${modifiedStr}`
+																? ` · Actualizado: <time datetime="${article.modified}">${modifiedStr}</time>`
 																: ''
 														}
                         </p>
@@ -429,7 +451,8 @@ async function build() {
 					imageTag +
 					article.content +
 					articleNewsletterHtml +
-					internalLinking
+					internalLinking +
+					article.sources
 			);
 		} else {
 			html = injectContent(html, article.content + landingNewsletterHtml);
@@ -470,7 +493,9 @@ async function build() {
 
 	generateCdnHeaders(paths.dist);
 
-	console.log('✅ SSG completed');
+	console.log(
+		'✅ SSG completed on ' + (IS_PROD ? 'production' : 'development') + ' mode'
+	);
 }
 
 build();

@@ -8,8 +8,8 @@ const rootDir = path.join(__dirname, '..');
 export const paths = {
 	rootDir,
 	dist: path.join(rootDir, 'dist'),
-	articles: '/Users/vitor/Desktop/articles',
-	images: '/Users/vitor/Desktop/images',
+	articles: '/Users/vitor/Desktop/content/writings',
+	images: '/Users/vitor/Desktop/content/images',
 	templates: path.join(rootDir, 'templates'),
 	assets: path.join(rootDir, 'assets'),
 	hashFile: path.join(rootDir, 'hashes.json'),
