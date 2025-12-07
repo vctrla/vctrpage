@@ -214,6 +214,9 @@ function buildInternalLinking(article, allArticles, assetMap) {
 
 // BUILD
 async function build() {
+	const startTime = performance.now();
+	console.log('⏳ Build started…');
+
 	// clean dist
 	if (fs.existsSync(paths.dist)) {
 		rmSync(paths.dist, { recursive: true, force: true });
@@ -494,8 +497,13 @@ async function build() {
 
 	generateCdnHeaders(paths.dist);
 
+	const endTime = performance.now();
+	const seconds = ((endTime - startTime) / 1000).toFixed(2);
+
 	console.log(
-		'✅ SSG completed on ' + (IS_PROD ? 'production' : 'development') + ' mode'
+		`✅ (${seconds}s) SSG completed ~ ${
+			IS_PROD ? 'production' : 'development'
+		} mode`
 	);
 }
 

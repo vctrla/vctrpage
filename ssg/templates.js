@@ -13,7 +13,7 @@ export function loadTemplateWithExtras(assetMap, jsonLdMin) {
 		{
 			title: site.title,
 			description: site.description,
-			canonical: site.origin,
+			canonical: site.origin + '/',
 			ogImage: site.ogImg,
 			type: 'website',
 		},
