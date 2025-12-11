@@ -33,6 +33,10 @@ export function fileHash(input) {
 	return hash.update(buf).digest('hex').slice(0, 8);
 }
 
+export function hashString(str) {
+	return fileHash(Buffer.from(str, 'utf8'));
+}
+
 export function loadHashes(hashFilePath) {
 	return fs.existsSync(hashFilePath)
 		? JSON.parse(fs.readFileSync(hashFilePath, 'utf-8'))
@@ -135,6 +139,11 @@ export function injectRssLink(html) {
 }
 
 export async function minify(html) {
+	// skip minification in dev mode
+	if (process.env.NODE_ENV !== 'production') {
+		return html;
+	}
+
 	return _minify(html, {
 		collapseWhitespace: true,
 		removeComments: true,

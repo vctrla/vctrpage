@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { paths, site } from './config.js';
 import { injectContent, minify, injectRssLink, buildMoreBtn } from './utils.js';
@@ -62,6 +62,6 @@ export async function renderPaginated(paginated, i, assetMap) {
 
 	// write file
 	const pageFile = path.join(paths.dist, 'page', `${pageNum}.html`);
-	fs.mkdirSync(path.dirname(pageFile), { recursive: true });
-	fs.writeFileSync(pageFile, await minify(html), 'utf-8');
+	await fs.mkdir(path.dirname(pageFile), { recursive: true });
+	await fs.writeFile(pageFile, await minify(html), 'utf-8');
 }

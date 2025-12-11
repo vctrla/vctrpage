@@ -1,7 +1,15 @@
 import fs, { rmSync } from 'fs';
 import path from 'path';
 import { paths, site, ui } from './config.js';
-import { injectContent, minify, injectRssLink, buildMoreBtn } from './utils.js';
+import {
+	injectContent,
+	minify,
+	injectRssLink,
+	buildMoreBtn,
+	saveHashes,
+	hashString,
+	loadHashes,
+} from './utils.js';
 import { processAssets } from './assets.js';
 import { embedNewsletter } from './newsletter.js';
 import { loadTemplateWithExtras } from './load-templates.js';
@@ -32,6 +40,38 @@ function paginate(array) {
 	return pages;
 }
 
+// minimal article fingerprint for incremental rebuilds
+function articleSignature(article, templateHash, assetMapHash) {
+	return JSON.stringify({
+		type: 'article',
+		slug: article.slug,
+		title: article.title,
+		description: article.description,
+		date: article.date,
+		modified: article.modified || null,
+		img: article.img || null,
+		author: article.author || null,
+		authorLink: article.authorLink || null,
+		category: article.category || null,
+		isTopLevel: article.isTopLevel || false,
+		content: article.content || '',
+		sources: article.sources || '',
+		templateHash,
+		assetMapHash,
+	});
+}
+
+// small snippet of article data for list/pagination signatures
+function pageArticlesSignature(pageArticles) {
+	return pageArticles.map((a) => ({
+		slug: a.slug,
+		title: a.title,
+		description: a.description,
+		date: a.date,
+		img: a.img || null,
+	}));
+}
+
 // *
 // **
 // ***
@@ -41,95 +81,189 @@ async function build() {
 	const startTime = performance.now();
 	console.log('⏳ Build started…');
 
-	// clean dist
-	if (fs.existsSync(paths.dist)) {
+	// clean dist only in production
+	if (IS_PROD && fs.existsSync(paths.dist)) {
+		console.log('🧹 Cleaning dist directory…');
 		rmSync(paths.dist, { recursive: true, force: true });
 		if (fs.existsSync(paths.dist)) {
 			console.error('❌ Failed to remove dist directory');
 		}
 	}
+
+	// ensure dist exists
 	fs.mkdirSync(paths.dist, { recursive: true });
 
-	// assets
-	const { assetMap } = await processAssets();
+	// 1) assets (also returns updated hashes for assets)
+	const { assetMap, hashes: assetHashes } = await processAssets();
 
-	// content
+	// 2) load existing html hashes (if you removed saveHashes from assets.js,
+	// you can just reuse assetHashes; to keep it simple, start from that object)
+	const hashes = assetHashes || loadHashes(paths.hashFile);
+
+	// 3) fingerprint template + assetMap so we can invalidate when they change
+	const templateSource = fs.readFileSync(
+		path.join(paths.templates, 'template.html'),
+		'utf-8'
+	);
+	const templateHash = hashString(templateSource);
+	const assetMapHash = hashString(JSON.stringify(assetMap));
+
+	// 4) content
 	const articles = loadArticles(paths.articles);
 	const latestArticles = articles
 		.filter((a) => !a.isTopLevel)
 		.slice(0, ui.articlesOnLanding);
 
-	// pagination
+	// pagination data
 	const remainingArticles = articles
 		.filter((a) => !a.isTopLevel)
 		.slice(ui.articlesOnLanding);
 	const paginated = paginate(remainingArticles);
 
+	// 5) incremental index.html (landing)
+	const indexKey = 'html:index';
+	const indexSig = JSON.stringify({
+		type: 'index',
+		templateHash,
+		assetMapHash,
+		articles: pageArticlesSignature(latestArticles),
+	});
+	const indexHash = hashString(indexSig);
+	const indexPath = path.join(paths.dist, 'index.html');
+	const prevIndexHash = hashes[indexKey];
+	const shouldRenderIndex =
+		prevIndexHash !== indexHash || !fs.existsSync(indexPath);
+
+	if (shouldRenderIndex) {
+		hashes[indexKey] = indexHash;
+
+		// template + JSON-LD as before
+		const jsonLdMin = buildIndexJsonLd(latestArticles, assetMap);
+		const baseTemplate = loadTemplateWithExtras(assetMap, jsonLdMin);
+
+		// email newsletter HTML
+		const turnstileSiteKey = IS_PROD
+			? '0x4AAAAAACBv_qQyd1sIX-Ve'
+			: '1x00000000000000000000BB';
+
+		const landingNewsletterHtml = embedNewsletter(
+			'Recibe nuevos artículos en tu correo:',
+			turnstileSiteKey
+		);
+
+		// index.html
+		const listHtml = renderArticlesList(latestArticles, assetMap, {
+			isLanding: true,
+		});
+		let indexHtml = injectContent(
+			baseTemplate,
+			listHtml + landingNewsletterHtml
+		);
+		indexHtml = injectRssLink(indexHtml);
+
+		if (paginated.length > 0) {
+			indexHtml = indexHtml.replace(
+				/<\/head>/i,
+				`<link rel="next" href="/page/2"></head>`
+			);
+
+			const moreBtn = buildMoreBtn('/page/2');
+			indexHtml = indexHtml.replace('</ul>', `</ul>${moreBtn}`);
+		}
+
+		fs.writeFileSync(indexPath, await minify(indexHtml), 'utf-8');
+	}
+
+	// 6) incremental paginated pages (/page/2, /page/3, …)
 	if (paginated.length > 0) {
+		const pageTasks = [];
+
 		for (let i = 0; i < paginated.length; i++) {
-			await renderPaginated(paginated, i, assetMap);
+			const pageArticles = paginated[i];
+			const pageNum = i + 2; // pages start at 2
+			const key = `html:page:${pageNum}`;
+
+			const sig = JSON.stringify({
+				type: 'paginated',
+				pageNum,
+				templateHash,
+				assetMapHash,
+				articles: pageArticlesSignature(pageArticles),
+			});
+			const sigHash = hashString(sig);
+
+			const outPath = path.join(paths.dist, 'page', `${pageNum}.html`);
+			const prev = hashes[key];
+
+			if (prev === sigHash && fs.existsSync(outPath)) {
+				continue; // unchanged page, skip
+			}
+
+			hashes[key] = sigHash;
+			pageTasks.push(renderPaginated(paginated, i, assetMap));
+		}
+
+		if (pageTasks.length > 0) {
+			await Promise.all(pageTasks);
 		}
 	}
 
-	// template
-	const jsonLdMin = buildIndexJsonLd(latestArticles, assetMap);
-	const baseTemplate = loadTemplateWithExtras(assetMap, jsonLdMin);
-
-	// email newsletter HTML
-	const turnstileSiteKey = IS_PROD
-		? '0x4AAAAAACBv_qQyd1sIX-Ve'
-		: // : '3x00000000000000000000FF'; // testing key (always shows visible)
-		  '1x00000000000000000000BB'; // testing key (always passes invisible)
-
-	const landingNewsletterHtml = embedNewsletter(
-		'Recibe nuevos artículos en tu correo:',
-		turnstileSiteKey
-	);
-
-	// index.html
-	const listHtml = renderArticlesList(latestArticles, assetMap, {
-		isLanding: true,
-	});
-	let indexHtml = injectContent(baseTemplate, listHtml + landingNewsletterHtml);
-	indexHtml = injectRssLink(indexHtml);
-
-	if (paginated.length > 0) {
-		indexHtml = indexHtml.replace(
-			/<\/head>/i,
-			`<link rel="next" href="/page/2"></head>`
-		);
-
-		const moreBtn = buildMoreBtn('/page/2');
-		indexHtml = indexHtml.replace('</ul>', `</ul>${moreBtn}`);
-	}
-
-	fs.writeFileSync(
-		path.join(paths.dist, 'index.html'),
-		await minify(indexHtml),
-		'utf-8'
-	);
-
-	// each article
+	// 7) articles (incremental per article)
 	const articleDir = path.join(
 		paths.dist,
 		site.articlesBase.replace(/^\//, '')
 	);
 	fs.mkdirSync(articleDir, { recursive: true });
 
-	for (const article of articles) {
-		if (article.link) continue; // external -> don’t build a file
+	const articleTasks = [];
 
-		await renderArticle(
-			article,
-			articles,
-			assetMap,
-			landingNewsletterHtml,
-			turnstileSiteKey,
-			articleDir
+	// newsletter html & key computed once (same as before)
+	const turnstileSiteKey = IS_PROD
+		? '0x4AAAAAACBv_qQyd1sIX-Ve'
+		: '1x00000000000000000000BB';
+
+	const landingNewsletterHtml = embedNewsletter(
+		'Recibe nuevos artículos en tu correo:',
+		turnstileSiteKey
+	);
+
+	for (const article of articles) {
+		if (article.link) continue; // skip external link articles
+
+		const sig = articleSignature(article, templateHash, assetMapHash);
+		const sigHash = hashString(sig);
+		const key = `html:article:${article.slug}`;
+
+		const outPath = article.isTopLevel
+			? path.join(paths.dist, `${article.slug}.html`)
+			: path.join(articleDir, `${article.slug}.html`);
+
+		const prev = hashes[key];
+
+		// skip rebuild if unchanged and file exists
+		if (prev === sigHash && fs.existsSync(outPath)) {
+			continue;
+		}
+
+		hashes[key] = sigHash;
+
+		articleTasks.push(
+			renderArticle(
+				article,
+				articles,
+				assetMap,
+				landingNewsletterHtml,
+				turnstileSiteKey,
+				articleDir
+			)
 		);
 	}
 
-	// SEO files
+	if (articleTasks.length > 0) {
+		await Promise.all(articleTasks);
+	}
+
+	// 8) SEO files (unchanged)
 	writeRobotsTxt();
 	writeSitemap(articles, latestArticles, paginated);
 	writeRSS(articles, 12);
@@ -148,12 +282,15 @@ async function build() {
 	// Cloudflare CDN headers
 	generateCdnHeaders(paths.dist);
 
+	// 9) save all hashes (assets + html)
+	saveHashes(paths.hashFile, hashes);
+
 	// done
 	const endTime = performance.now();
 	const seconds = ((endTime - startTime) / 1000).toFixed(2);
 
 	console.log(
-		`✅ (${seconds}s) SSG completed ~ ${
+		`🏁 (${seconds}s) SSG completed ~ ${
 			IS_PROD ? 'production' : 'development'
 		} mode`
 	);

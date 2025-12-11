@@ -4,10 +4,15 @@ import { escapeRegex } from './utils.js';
 import { site, paths } from './config.js';
 import { buildMeta } from './seo.js';
 
+let cachedBaseTemplate = null;
+
 export function loadTemplateWithExtras(assetMap, jsonLdMin) {
-	const template = fs
-		.readFileSync(path.join(paths.templates, 'template.html'), 'utf-8')
-		.trim();
+	if (!cachedBaseTemplate) {
+		cachedBaseTemplate = fs.readFileSync(
+			path.join(paths.templates, 'template.html'),
+			'utf-8'
+		);
+	}
 
 	const defaultHead = buildMeta(
 		{
@@ -20,7 +25,7 @@ export function loadTemplateWithExtras(assetMap, jsonLdMin) {
 		assetMap
 	);
 
-	let out = template.replace(
+	let out = cachedBaseTemplate.replace(
 		'<!-- HEAD_DYNAMIC -->',
 		`<!-- HEAD_START -->\n${defaultHead}\n<!-- HEAD_END -->`
 	);

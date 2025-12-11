@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { paths, site, ui } from './config.js';
 import {
@@ -205,14 +205,14 @@ export async function renderArticle(
 
 	if (article.isTopLevel) {
 		// root
-		fs.writeFileSync(
+		await fs.writeFile(
 			path.join(paths.dist, `${article.slug}.html`),
 			await minify(html),
 			'utf-8'
 		);
 	} else {
 		// under /articulos/
-		fs.writeFileSync(
+		await fs.writeFile(
 			path.join(articleDir, `${article.slug}.html`),
 			await minify(html),
 			'utf-8'

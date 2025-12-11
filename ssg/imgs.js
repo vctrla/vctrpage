@@ -1,7 +1,6 @@
 import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
-import { fileHash } from './utils.js';
 import { escAttr } from './utils.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -11,7 +10,7 @@ const config = {
 	quality: 100,
 };
 
-export async function processImage(absPath, relPath, distDir) {
+export async function processImage(absPath, relPath, distDir, srcHash) {
 	const ext = path.extname(relPath);
 	const base = path.basename(relPath, ext);
 	const dir = path.posix.dirname(relPath);
@@ -28,8 +27,7 @@ export async function processImage(absPath, relPath, distDir) {
 		.webp({ quality: config.quality, effort: 6, smartSubsample: true })
 		.toBuffer();
 
-	const hash = fileHash(buffer);
-	const hashedName = `${base}.${hash}.webp`;
+	const hashedName = `${base}.${srcHash}.webp`;
 	const outPath = path.join(distDir, hashedName);
 
 	await fs.promises.mkdir(distDir, { recursive: true });

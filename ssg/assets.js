@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { fileHash, loadHashes, saveHashes } from './utils.js';
+import { fileHash, loadHashes } from './utils.js';
 import { processImage } from './imgs.js';
 import { paths, site } from './config.js';
 import { minify as terserMinify } from 'terser';
@@ -8,6 +8,8 @@ import { minify as terserMinify } from 'terser';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 export async function processAssets() {
+	console.log(`📦 Processing assets...`);
+
 	const hashes = loadHashes(paths.hashFile);
 	const assetMap = {};
 
@@ -16,6 +18,9 @@ export async function processAssets() {
 		fs.mkdirSync(destImgDir, { recursive: true });
 
 		const entries = fs.readdirSync(paths.images, { withFileTypes: true });
+
+		const imgTasks = [];
+
 		for (const entry of entries) {
 			if (
 				entry.name.startsWith('.') ||
@@ -29,22 +34,36 @@ export async function processAssets() {
 			const ext = path.extname(entry.name).toLowerCase();
 			if (!ext.match(/\.(jpe?g|png)$/i)) continue;
 
-			const abs = path.join(paths.images, entry.name);
-			const rel = path.posix.join('img', entry.name);
-			const relHashed = await processImage(abs, rel, destImgDir);
-			assetMap[rel] = relHashed;
+			imgTasks.push(
+				(async () => {
+					const abs = path.join(paths.images, entry.name);
+					const rel = path.posix.join('img', entry.name);
 
-			// extract hash from "img/foo.<hash>.webp" and store under *original* key
-			const match = relHashed.match(/\.([0-9a-f]{8})\.webp$/i);
-			if (match) {
-				const [, hash] = match;
-				hashes[rel] = hash;
-			} else {
-				console.warn(
-					`⚠️ Could not extract hash from processed image path: ${relHashed}`
-				);
-			}
+					// hash of the source image content
+					const srcHash = fileHash(abs);
+					const prevHash = hashes[rel];
+
+					// if same content as last time -> reuse existing output
+					if (prevHash === srcHash) {
+						const base = path.basename(entry.name, ext);
+						const hashedRel = path.posix.join('img', `${base}.${srcHash}.webp`);
+						const hashedAbs = path.join(paths.dist, hashedRel);
+
+						if (fs.existsSync(hashedAbs)) {
+							assetMap[rel] = hashedRel;
+							return; // ✅ skip Sharp
+						}
+					}
+
+					// fallback: do the expensive work
+					const relHashed = await processImage(abs, rel, destImgDir, srcHash);
+					assetMap[rel] = relHashed;
+					hashes[rel] = srcHash;
+				})()
+			);
 		}
+
+		await Promise.all(imgTasks);
 	} else {
 		console.warn(`⚠️  No Desktop images folder at ${paths.images}`);
 	}
@@ -84,7 +103,8 @@ export async function processAssets() {
 			}
 
 			const newHash = fileHash(abs);
-			const hash = hashes[rel] === newHash ? hashes[rel] : newHash;
+			const prevHash = hashes[rel];
+			const hash = prevHash === newHash ? prevHash : newHash;
 			hashes[rel] = hash;
 
 			const base = path.basename(entry.name, ext);
@@ -95,36 +115,46 @@ export async function processAssets() {
 
 			const hashedAbs = path.join(paths.dist, hashedRel);
 
+			// if unchanged && output exists -> reuse and skip heavy work
+			if (prevHash === newHash && fs.existsSync(hashedAbs)) {
+				assetMap[rel] = hashedRel;
+				continue;
+			}
+
 			if (ext === '.js') {
 				try {
 					let code = fs.readFileSync(abs, 'utf8');
-
 					const endpoint = IS_PROD ? site.origin : site.local;
 					code = code.replace(/__ENDPOINT__/g, JSON.stringify(endpoint));
 
-					const result = await terserMinify(code, {
-						module: true,
-						compress: {
-							passes: 3,
-							ecma: 2020,
-							drop_console: IS_PROD,
-							drop_debugger: IS_PROD,
-							unsafe_arrows: true,
-							unsafe_comps: true,
-							unsafe_methods: true,
-							unsafe_proto: true,
-							unsafe_undefined: true,
-						},
-						mangle: true,
-						format: {
-							comments: false,
-						},
-					});
-
-					if (result.code && result.code.length) {
-						fs.writeFileSync(hashedAbs, result.code, 'utf8');
+					if (!IS_PROD) {
+						// dev: no terser -> just write hashed
+						fs.writeFileSync(hashedAbs, code, 'utf8');
 					} else {
-						fs.copyFileSync(abs, hashedAbs);
+						const result = await terserMinify(code, {
+							module: true,
+							compress: {
+								passes: 3,
+								ecma: 2020,
+								drop_console: IS_PROD,
+								drop_debugger: IS_PROD,
+								unsafe_arrows: true,
+								unsafe_comps: true,
+								unsafe_methods: true,
+								unsafe_proto: true,
+								unsafe_undefined: true,
+							},
+							mangle: true,
+							format: {
+								comments: false,
+							},
+						});
+
+						if (result.code && result.code.length) {
+							fs.writeFileSync(hashedAbs, result.code, 'utf8');
+						} else {
+							fs.copyFileSync(abs, hashedAbs);
+						}
 					}
 				} catch (err) {
 					console.warn(`⚠️  Terser failed for ${rel}: ${err?.message || err}`);
@@ -140,7 +170,6 @@ export async function processAssets() {
 	};
 
 	await walk(paths.assets);
-	saveHashes(paths.hashFile, hashes);
-	console.log(`📦 Processed assets recursively`);
+	console.log(`✅ Processed assets recursively`);
 	return { assetMap, hashes };
 }
