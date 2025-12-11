@@ -93,14 +93,13 @@ async function build() {
 	// ensure dist exists
 	fs.mkdirSync(paths.dist, { recursive: true });
 
-	// 1) assets (also returns updated hashes for assets)
+	// assets
 	const { assetMap, hashes: assetHashes } = await processAssets();
 
-	// 2) load existing html hashes (if you removed saveHashes from assets.js,
-	// you can just reuse assetHashes; to keep it simple, start from that object)
+	// load hashes
 	const hashes = assetHashes || loadHashes(paths.hashFile);
 
-	// 3) fingerprint template + assetMap so we can invalidate when they change
+	// fingerprint template + assetMap so we can invalidate when they change
 	const templateSource = fs.readFileSync(
 		path.join(paths.templates, 'template.html'),
 		'utf-8'
@@ -108,7 +107,7 @@ async function build() {
 	const templateHash = hashString(templateSource);
 	const assetMapHash = hashString(JSON.stringify(assetMap));
 
-	// 4) content
+	// content
 	const articles = loadArticles(paths.articles);
 	const latestArticles = articles
 		.filter((a) => !a.isTopLevel)
@@ -120,7 +119,7 @@ async function build() {
 		.slice(ui.articlesOnLanding);
 	const paginated = paginate(remainingArticles);
 
-	// 5) incremental index.html (landing)
+	// incremental index.html (landing)
 	const indexKey = 'html:index';
 	const indexSig = JSON.stringify({
 		type: 'index',
@@ -137,7 +136,7 @@ async function build() {
 	if (shouldRenderIndex) {
 		hashes[indexKey] = indexHash;
 
-		// template + JSON-LD as before
+		// template + JSON-LD
 		const jsonLdMin = buildIndexJsonLd(latestArticles, assetMap);
 		const baseTemplate = loadTemplateWithExtras(assetMap, jsonLdMin);
 
@@ -174,7 +173,7 @@ async function build() {
 		fs.writeFileSync(indexPath, await minify(indexHtml), 'utf-8');
 	}
 
-	// 6) incremental paginated pages (/page/2, /page/3, …)
+	// incremental paginated pages (/page/2, /page/3, …)
 	if (paginated.length > 0) {
 		const pageTasks = [];
 
@@ -208,7 +207,7 @@ async function build() {
 		}
 	}
 
-	// 7) articles (incremental per article)
+	// articles (incremental per article)
 	const articleDir = path.join(
 		paths.dist,
 		site.articlesBase.replace(/^\//, '')
@@ -217,7 +216,7 @@ async function build() {
 
 	const articleTasks = [];
 
-	// newsletter html & key computed once (same as before)
+	// newsletter html & key computed once
 	const turnstileSiteKey = IS_PROD
 		? '0x4AAAAAACBv_qQyd1sIX-Ve'
 		: '1x00000000000000000000BB';
@@ -263,7 +262,7 @@ async function build() {
 		await Promise.all(articleTasks);
 	}
 
-	// 8) SEO files (unchanged)
+	// SEO files
 	writeRobotsTxt();
 	writeSitemap(articles, latestArticles, paginated);
 	writeRSS(articles, 12);
@@ -279,10 +278,10 @@ async function build() {
 		console.warn('⚠️ No favicon.ico found, skipping copy');
 	}
 
-	// Cloudflare CDN headers
+	// cloudflare
 	generateCdnHeaders(paths.dist);
 
-	// 9) save all hashes (assets + html)
+	// save all hashes (assets + html)
 	saveHashes(paths.hashFile, hashes);
 
 	// done
