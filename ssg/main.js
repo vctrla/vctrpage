@@ -1,4 +1,4 @@
-import fs, { rmSync } from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { paths, site, ui } from './config.js';
 import {
@@ -8,7 +8,6 @@ import {
 	buildMoreBtn,
 	saveHashes,
 	hashString,
-	loadHashes,
 } from './utils.js';
 import { processAssets } from './assets.js';
 import { embedNewsletter } from './newsletter.js';
@@ -32,6 +31,15 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 // ***
 // ****
 // ***** helper functions
+async function exists(p) {
+	try {
+		await fs.access(p);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 function paginate(array) {
 	const pages = [];
 	for (let i = 0; i < array.length; i += ui.articlesPerPage) {
@@ -82,25 +90,22 @@ async function build() {
 	console.log('⏳ Build started…');
 
 	// clean dist only in production
-	if (IS_PROD && fs.existsSync(paths.dist)) {
+	if (IS_PROD && (await exists(paths.dist))) {
 		console.log('🧹 Cleaning dist directory…');
-		rmSync(paths.dist, { recursive: true, force: true });
-		if (fs.existsSync(paths.dist)) {
+		await fs.rm(paths.dist, { recursive: true, force: true });
+		if (await exists(paths.dist)) {
 			console.error('❌ Failed to remove dist directory');
 		}
 	}
 
 	// ensure dist exists
-	fs.mkdirSync(paths.dist, { recursive: true });
+	await fs.mkdir(paths.dist, { recursive: true });
 
 	// assets
-	const { assetMap, hashes: assetHashes } = await processAssets();
-
-	// load hashes
-	const hashes = assetHashes || loadHashes(paths.hashFile);
+	const { assetMap, hashes } = await processAssets();
 
 	// fingerprint template + assetMap so we can invalidate when they change
-	const templateSource = fs.readFileSync(
+	const templateSource = await fs.readFile(
 		path.join(paths.templates, 'template.html'),
 		'utf-8'
 	);
@@ -108,7 +113,7 @@ async function build() {
 	const assetMapHash = hashString(JSON.stringify(assetMap));
 
 	// content
-	const articles = loadArticles(paths.articles);
+	const articles = await loadArticles(paths.articles);
 	const latestArticles = articles
 		.filter((a) => !a.isTopLevel)
 		.slice(0, ui.articlesOnLanding);
@@ -131,14 +136,14 @@ async function build() {
 	const indexPath = path.join(paths.dist, 'index.html');
 	const prevIndexHash = hashes[indexKey];
 	const shouldRenderIndex =
-		prevIndexHash !== indexHash || !fs.existsSync(indexPath);
+		prevIndexHash !== indexHash || !(await exists(indexPath));
 
 	if (shouldRenderIndex) {
 		hashes[indexKey] = indexHash;
 
 		// template + JSON-LD
 		const jsonLdMin = buildIndexJsonLd(latestArticles, assetMap);
-		const baseTemplate = loadTemplateWithExtras(assetMap, jsonLdMin);
+		const baseTemplate = await loadTemplateWithExtras(assetMap, jsonLdMin);
 
 		// email newsletter HTML
 		const turnstileSiteKey = IS_PROD
@@ -170,7 +175,8 @@ async function build() {
 			indexHtml = indexHtml.replace('</ul>', `</ul>${moreBtn}`);
 		}
 
-		fs.writeFileSync(indexPath, await minify(indexHtml), 'utf-8');
+		const minified = await minify(indexHtml);
+		await fs.writeFile(indexPath, minified, 'utf-8');
 	}
 
 	// incremental paginated pages (/page/2, /page/3, …)
@@ -194,7 +200,7 @@ async function build() {
 			const outPath = path.join(paths.dist, 'page', `${pageNum}.html`);
 			const prev = hashes[key];
 
-			if (prev === sigHash && fs.existsSync(outPath)) {
+			if (prev === sigHash && (await exists(outPath))) {
 				continue; // unchanged page, skip
 			}
 
@@ -212,7 +218,7 @@ async function build() {
 		paths.dist,
 		site.articlesBase.replace(/^\//, '')
 	);
-	fs.mkdirSync(articleDir, { recursive: true });
+	await fs.mkdir(articleDir, { recursive: true });
 
 	const articleTasks = [];
 
@@ -240,7 +246,7 @@ async function build() {
 		const prev = hashes[key];
 
 		// skip rebuild if unchanged and file exists
-		if (prev === sigHash && fs.existsSync(outPath)) {
+		if (prev === sigHash && (await exists(outPath))) {
 			continue;
 		}
 
@@ -263,26 +269,26 @@ async function build() {
 	}
 
 	// SEO files
-	writeRobotsTxt();
-	writeSitemap(articles, latestArticles, paginated);
-	writeRSS(articles, 12);
+	await writeRobotsTxt();
+	await writeSitemap(articles, latestArticles, paginated);
+	await writeRSS(articles, 12);
 
 	// favicon.ico
 	const icoSrc = path.join(paths.rootDir, 'favicon.ico');
 	const icoDest = path.join(paths.dist, 'favicon.ico');
 
-	if (fs.existsSync(icoSrc)) {
-		fs.copyFileSync(icoSrc, icoDest);
+	if (await exists(icoSrc)) {
+		await fs.copyFile(icoSrc, icoDest);
 		console.log('✅ favicon.ico copied to dist');
 	} else {
 		console.warn('⚠️ No favicon.ico found, skipping copy');
 	}
 
 	// cloudflare
-	generateCdnHeaders(paths.dist);
+	await generateCdnHeaders(paths.dist);
 
 	// save all hashes (assets + html)
-	saveHashes(paths.hashFile, hashes);
+	await saveHashes(paths.hashFile, hashes);
 
 	// done
 	const endTime = performance.now();
@@ -295,4 +301,7 @@ async function build() {
 	);
 }
 
-build();
+build().catch((err) => {
+	console.error('❌ Build failed:', err);
+	process.exitCode = 1;
+});

@@ -1,17 +1,21 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { escapeRegex } from './utils.js';
 import { site, paths } from './config.js';
 import { buildMeta } from './seo.js';
 
 let cachedBaseTemplate = null;
+let templatePromise = null;
 
-export function loadTemplateWithExtras(assetMap, jsonLdMin) {
+export async function loadTemplateWithExtras(assetMap, jsonLdMin) {
 	if (!cachedBaseTemplate) {
-		cachedBaseTemplate = fs.readFileSync(
-			path.join(paths.templates, 'template.html'),
-			'utf-8'
-		);
+		if (!templatePromise) {
+			templatePromise = fs.readFile(
+				path.join(paths.templates, 'template.html'),
+				'utf-8'
+			);
+		}
+		cachedBaseTemplate = await templatePromise;
 	}
 
 	const defaultHead = buildMeta(

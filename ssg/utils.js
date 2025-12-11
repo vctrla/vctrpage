@@ -20,31 +20,43 @@ export function stripHtmlTags(str) {
 	return str.replace(/<[^>]*>/g, '');
 }
 
-export function fileHash(input) {
+export async function fileHash(input) {
 	const hash = crypto.createHash('md5');
 	let buf;
 
 	if (Buffer.isBuffer(input)) {
 		buf = input; // already a buffer
 	} else {
-		buf = fs.readFileSync(input); // input is a path
+		buf = await fs.promises.readFile(input); // input is a path
 	}
 
 	return hash.update(buf).digest('hex').slice(0, 8);
 }
 
 export function hashString(str) {
-	return fileHash(Buffer.from(str, 'utf8'));
+	const hash = crypto.createHash('md5');
+	return hash.update(str, 'utf8').digest('hex').slice(0, 8);
 }
 
-export function loadHashes(hashFilePath) {
-	return fs.existsSync(hashFilePath)
-		? JSON.parse(fs.readFileSync(hashFilePath, 'utf-8'))
-		: {};
+export async function loadHashes(hashFilePath) {
+	try {
+		const data = await fs.promises.readFile(hashFilePath, 'utf-8');
+		return JSON.parse(data);
+	} catch (err) {
+		if (err.code === 'ENOENT') {
+			// no hash file yet
+			return {};
+		}
+		throw err;
+	}
 }
 
-export function saveHashes(hashFilePath, hashes) {
-	fs.writeFileSync(hashFilePath, JSON.stringify(hashes, null, 2), 'utf-8');
+export async function saveHashes(hashFilePath, hashes) {
+	await fs.promises.writeFile(
+		hashFilePath,
+		JSON.stringify(hashes, null, 2),
+		'utf-8'
+	);
 }
 
 export function escapeRegex(str) {

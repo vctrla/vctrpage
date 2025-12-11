@@ -1,7 +1,7 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 
-export function generateCdnHeaders(distDir) {
+export async function generateCdnHeaders(distDir) {
 	const allowedHosts = [
 		"'self'",
 		'https://cloudflareinsights.com',
@@ -88,7 +88,7 @@ export function generateCdnHeaders(distDir) {
   Cache-Control: public, max-age=86400
 `;
 
-	fs.writeFileSync(
+	await fs.writeFile(
 		path.join(distDir, '_headers'),
 		headers.trim() + '\n',
 		'utf-8'

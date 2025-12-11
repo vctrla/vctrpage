@@ -1,8 +1,7 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
-import { absoluteUrlFor } from './utils.js';
+import { absoluteUrlFor, escAttr, isoDate } from './utils.js';
 import { site, paths } from './config.js';
-import { escAttr, isoDate } from './utils.js';
 
 const BLOG_ID = site.origin + '#blog';
 
@@ -204,12 +203,12 @@ export function buildArticleJsonLd(article, assetMap) {
 	});
 }
 
-export function writeRobotsTxt() {
+export async function writeRobotsTxt() {
 	const robots = `User-agent: *\nAllow: /\nSitemap: ${site.origin}/sitemap.xml\n`;
-	fs.writeFileSync(path.join(paths.dist, 'robots.txt'), robots, 'utf-8');
+	await fs.writeFile(path.join(paths.dist, 'robots.txt'), robots, 'utf-8');
 }
 
-export function writeSitemap(allArticles, latestArticles, paginated) {
+export async function writeSitemap(allArticles, latestArticles, paginated) {
 	const formatDate = (d) => new Date(d).toISOString().split('T')[0];
 
 	// helper: lastmod for a list of articles (modified || date)
@@ -260,9 +259,10 @@ export function writeSitemap(allArticles, latestArticles, paginated) {
 		'\n'
 	)}\n</urlset>`;
 
-	fs.writeFileSync(path.join(paths.dist, 'sitemap.xml'), sitemap, 'utf-8');
+	await fs.writeFile(path.join(paths.dist, 'sitemap.xml'), sitemap, 'utf-8');
 }
-export function writeRSS(articles, limit = 20) {
+
+export async function writeRSS(articles, limit = 20) {
 	const latest = articles
 		.filter((a) => !a.link && !a.isTopLevel) // only real articles
 		.sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -307,6 +307,6 @@ export function writeRSS(articles, limit = 20) {
                     </channel>
                 </rss>`;
 
-	fs.writeFileSync(path.join(paths.dist, 'rss.xml'), rss, 'utf-8');
+	await fs.writeFile(path.join(paths.dist, 'rss.xml'), rss, 'utf-8');
 	console.log(`✅ RSS feed written`);
 }

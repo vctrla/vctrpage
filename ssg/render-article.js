@@ -93,7 +93,7 @@ export async function renderArticle(
 	const isError = ui.articlesWithoutHeader.includes(article.title);
 
 	const articleJsonLd = isError ? null : buildArticleJsonLd(article, assetMap);
-	let html = loadTemplateWithExtras(assetMap, articleJsonLd);
+	let html = await loadTemplateWithExtras(assetMap, articleJsonLd);
 	html = updateHeadPerArticle(html, article, assetMap);
 
 	const publishedStr = formatDate(article.date, site.locale);

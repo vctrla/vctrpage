@@ -444,7 +444,7 @@ async function sendNewsletterBatch(emails, ctx) {
 (async () => {
 	try {
 		const latest = findLatestYearMonthDir(ARTICLES_ROOT);
-		const articles = loadArticles(latest.path);
+		const articles = await loadArticles(latest.path);
 		if (!articles || articles.length === 0) {
 			throw new Error(`No articles found in ${latest.path}`);
 		}

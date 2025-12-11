@@ -1,4 +1,4 @@
-import fs from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { fileHash, loadHashes } from './utils.js';
 import { processImage } from './imgs.js';
@@ -7,17 +7,27 @@ import { minify as terserMinify } from 'terser';
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+async function exists(p) {
+	try {
+		await fs.access(p);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export async function processAssets() {
 	console.log(`📦 Processing assets...`);
 
-	const hashes = loadHashes(paths.hashFile);
+	const hashes = await loadHashes(paths.hashFile);
 	const assetMap = {};
 
-	if (paths.images && fs.existsSync(paths.images)) {
+	// IMAGES
+	if (paths.images && (await exists(paths.images))) {
 		const destImgDir = path.join(paths.dist, 'img');
-		fs.mkdirSync(destImgDir, { recursive: true });
+		await fs.mkdir(destImgDir, { recursive: true });
 
-		const entries = fs.readdirSync(paths.images, { withFileTypes: true });
+		const entries = await fs.readdir(paths.images, { withFileTypes: true });
 
 		const imgTasks = [];
 
@@ -40,7 +50,7 @@ export async function processAssets() {
 					const rel = path.posix.join('img', entry.name);
 
 					// hash of the source image content
-					const srcHash = fileHash(abs);
+					const srcHash = await fileHash(abs);
 					const prevHash = hashes[rel];
 
 					// if same content as last time -> reuse existing output
@@ -49,7 +59,7 @@ export async function processAssets() {
 						const hashedRel = path.posix.join('img', `${base}.${srcHash}.webp`);
 						const hashedAbs = path.join(paths.dist, hashedRel);
 
-						if (fs.existsSync(hashedAbs)) {
+						if (await exists(hashedAbs)) {
 							assetMap[rel] = hashedRel;
 							return; // ✅ skip Sharp
 						}
@@ -68,13 +78,14 @@ export async function processAssets() {
 		console.warn(`⚠️  No Desktop images folder at ${paths.images}`);
 	}
 
-	if (!fs.existsSync(paths.assets)) {
+	// ASSETS ROOT
+	if (!(await exists(paths.assets))) {
 		console.warn(`⚠️  No assets folder at ${paths.assets}`);
 		return { assetMap, hashes };
 	}
 
 	const walk = async (absDir, relBase = '') => {
-		const entries = fs.readdirSync(absDir, { withFileTypes: true });
+		const entries = await fs.readdir(absDir, { withFileTypes: true });
 
 		for (const entry of entries) {
 			if (
@@ -94,15 +105,15 @@ export async function processAssets() {
 
 			const ext = path.extname(entry.name).toLowerCase();
 			const destDir = path.join(paths.dist, path.posix.dirname(rel));
-			fs.mkdirSync(destDir, { recursive: true });
+			await fs.mkdir(destDir, { recursive: true });
 
 			if (['.html', '.txt', '.xml'].includes(ext)) {
-				fs.copyFileSync(abs, path.join(paths.dist, rel));
+				await fs.copyFile(abs, path.join(paths.dist, rel));
 				assetMap[rel] = rel;
 				continue;
 			}
 
-			const newHash = fileHash(abs);
+			const newHash = await fileHash(abs);
 			const prevHash = hashes[rel];
 			const hash = prevHash === newHash ? prevHash : newHash;
 			hashes[rel] = hash;
@@ -116,20 +127,20 @@ export async function processAssets() {
 			const hashedAbs = path.join(paths.dist, hashedRel);
 
 			// if unchanged && output exists -> reuse and skip heavy work
-			if (prevHash === newHash && fs.existsSync(hashedAbs)) {
+			if (prevHash === newHash && (await exists(hashedAbs))) {
 				assetMap[rel] = hashedRel;
 				continue;
 			}
 
 			if (ext === '.js') {
 				try {
-					let code = fs.readFileSync(abs, 'utf8');
+					let code = await fs.readFile(abs, 'utf8');
 					const endpoint = IS_PROD ? site.origin : site.local;
 					code = code.replace(/__ENDPOINT__/g, JSON.stringify(endpoint));
 
 					if (!IS_PROD) {
 						// dev: no terser -> just write hashed
-						fs.writeFileSync(hashedAbs, code, 'utf8');
+						await fs.writeFile(hashedAbs, code, 'utf8');
 					} else {
 						const result = await terserMinify(code, {
 							module: true,
@@ -151,20 +162,21 @@ export async function processAssets() {
 						});
 
 						if (result.code && result.code.length) {
-							fs.writeFileSync(hashedAbs, result.code, 'utf8');
+							await fs.writeFile(hashedAbs, result.code, 'utf8');
 						} else {
-							fs.copyFileSync(abs, hashedAbs);
+							await fs.copyFile(abs, hashedAbs);
 						}
 					}
 				} catch (err) {
 					console.warn(`⚠️  Terser failed for ${rel}: ${err?.message || err}`);
-					fs.copyFileSync(abs, hashedAbs);
+					await fs.copyFile(abs, hashedAbs);
 				}
 				assetMap[rel] = hashedRel;
 				continue;
 			}
 
-			fs.copyFileSync(abs, path.join(paths.dist, hashedRel));
+			// default: copy with hashed name
+			await fs.copyFile(abs, path.join(paths.dist, hashedRel));
 			assetMap[rel] = hashedRel;
 		}
 	};

@@ -1,5 +1,5 @@
 import path from 'path';
-import fs from 'fs';
+import fs from 'fs/promises';
 import sharp from 'sharp';
 import { escAttr } from './utils.js';
 
@@ -30,8 +30,8 @@ export async function processImage(absPath, relPath, distDir, srcHash) {
 	const hashedName = `${base}.${srcHash}.webp`;
 	const outPath = path.join(distDir, hashedName);
 
-	await fs.promises.mkdir(distDir, { recursive: true });
-	await fs.promises.writeFile(outPath, buffer);
+	await fs.mkdir(distDir, { recursive: true });
+	await fs.writeFile(outPath, buffer);
 
 	const relHashed = path.posix.join(dir, hashedName);
 	return relHashed;

@@ -9,7 +9,7 @@ import { buildIndexJsonLd, buildMeta } from './seo.js';
 export async function renderPaginated(paginated, i, assetMap) {
 	const pageArticles = paginated[i];
 	const jsonLdMin = buildIndexJsonLd(pageArticles, assetMap);
-	let html = loadTemplateWithExtras(assetMap, jsonLdMin);
+	let html = await loadTemplateWithExtras(assetMap, jsonLdMin);
 
 	const listHtml = renderArticlesList(pageArticles, assetMap);
 	html = injectContent(html, listHtml);
