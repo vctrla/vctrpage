@@ -308,7 +308,5 @@ export function writeRSS(articles, limit = 20) {
                 </rss>`;
 
 	fs.writeFileSync(path.join(paths.dist, 'rss.xml'), rss, 'utf-8');
-	console.log(
-		`✅ RSS feed written with ${latest.length} articles (no descriptions)`
-	);
+	console.log(`✅ RSS feed written`);
 }

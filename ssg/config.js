@@ -26,3 +26,10 @@ export const site = {
 	ogImg: 'https://vctr.page/og_img.png',
 	siteName: 'Víctor',
 };
+
+export const ui = {
+	articlesOnLanding: 4,
+	articlesPerPage: 3,
+	articlesWithoutHeader: ['404', '500'],
+	maxInternalLinks: 3,
+};

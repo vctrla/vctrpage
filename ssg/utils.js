@@ -145,3 +145,12 @@ export async function minify(html) {
 		minifyJS: true,
 	});
 }
+
+export function buildMoreBtn(nextUrl) {
+	return nextUrl
+		? `<div class="load-more">
+			<a href="${nextUrl}" class="load-more-link">Ver más</a>
+			<noscript><a href="${nextUrl}">Ver más</a></noscript>
+		  </div>`
+		: '';
+}

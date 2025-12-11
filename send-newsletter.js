@@ -539,7 +539,7 @@ async function sendNewsletterBatch(emails, ctx) {
 			const home = process.env.HOME || process.env.USERPROFILE;
 			const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
-			const reportsDir = path.join(home, 'Desktop/vctrpage', '.vctr_reports');
+			const reportsDir = path.join(home, 'Desktop/vctrpage', '_vctr_reports');
 
 			if (!fs.existsSync(reportsDir)) {
 				fs.mkdirSync(reportsDir, { recursive: true });

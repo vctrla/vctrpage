@@ -30,5 +30,5 @@ assets/img/
 rdmp.txt
 
 .wrangler/
-.scripts/
-.vctr_reports/
+_scripts/
+_vctr_reports/
