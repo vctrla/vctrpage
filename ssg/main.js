@@ -268,27 +268,25 @@ async function build() {
 		await Promise.all(articleTasks);
 	}
 
-	// SEO files
-	await writeRobotsTxt();
-	await writeSitemap(articles, latestArticles, paginated);
-	await writeRSS(articles, 12);
+	// concurrent fs operations
+	await Promise.all([
+		writeRobotsTxt(),
+		writeSitemap(articles, latestArticles, paginated),
+		writeRSS(articles, 12),
+		(async () => {
+			const icoSrc = path.join(paths.rootDir, 'favicon.ico');
+			const icoDest = path.join(paths.dist, 'favicon.ico');
 
-	// favicon.ico
-	const icoSrc = path.join(paths.rootDir, 'favicon.ico');
-	const icoDest = path.join(paths.dist, 'favicon.ico');
-
-	if (await exists(icoSrc)) {
-		await fs.copyFile(icoSrc, icoDest);
-		console.log('✅ favicon.ico copied to dist');
-	} else {
-		console.warn('⚠️ No favicon.ico found, skipping copy');
-	}
-
-	// cloudflare
-	await generateCdnHeaders(paths.dist);
-
-	// save all hashes (assets + html)
-	await saveHashes(paths.hashFile, hashes);
+			if (await exists(icoSrc)) {
+				await fs.copyFile(icoSrc, icoDest);
+				console.log('✅ favicon.ico copied to dist');
+			} else {
+				console.warn('⚠️ No favicon.ico found, skipping copy');
+			}
+		})(),
+		generateCdnHeaders(paths.dist),
+		saveHashes(paths.hashFile, hashes),
+	]);
 
 	// done
 	const endTime = performance.now();
